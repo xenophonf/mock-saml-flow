@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+# cf. tool.setuptools.package-dir section below
+name = "mock_saml_flow"
+description = "Mock SAML authentication flow"
+version = "0.0.0"
+# cf. https://www.bitecode.dev/p/relieving-your-python-packaging-pain,
+# https://devguide.python.org/versions/
+requires-python = ">=3.10"
+# cf. https://pypi.org/classifiers/
+classifiers = [
+    "Private :: Do Not Upload",
+]
+# To avoid unnecessary developer overhead, only set version
+# constraints to address capability, compatibility, or security
+# issues, and avoid pinning specific versions if possible.
+dependencies = [
+    "pysaml2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "autopep8",
+    "black",
+    "build",
+    "flake8-bugbear",
+    "flake8-pytest-style",
+    "id",
+    "isort",
+    "jedi",
+    "pre-commit",
+    "yapf",
+    "yq",
+]
+test = [
+    "faker",
+    "pytest",
+    "pytest-cov",
+    "pytest-emoji",
+    "pytest-md",
+    "pytest-order",
+    "pytest-reportlog",
+]
+
+
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+
+
+[tool.pytest.ini_options]
+# Recommended for new projects;
+# cf. https://docs.pytest.org/en/latest/explanation/goodpractices.html#choosing-an-import-mode.
+addopts = [
+    "--import-mode=importlib",
+]
+# Invoke smoke tests with `pytest -k smoke` or `pytest -m "smoke and
+# not slow"`.  See also https://docs.pytest.org/en/stable/mark.html,
+# https://stackoverflow.com/a/52369721.
+markers = [
+    "slow",
+    "smoke",
+]
+
+
+[tool.setuptools.package-dir]
+mock_saml_flow = "src/mock_saml_flow"

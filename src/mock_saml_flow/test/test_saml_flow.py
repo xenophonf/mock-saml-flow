@@ -1,12 +1,51 @@
 import random
 import string
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
+from urllib.parse import parse_qs, urlparse
 
 import pytest
-from saml2 import BINDING_HTTP_REDIRECT
+from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT
 from saml2.client import Saml2Client
-from saml2.config import Config
+from saml2.config import Config, IdPConfig
+from saml2.request import AuthnRequest
+from saml2.samlp import AuthnRequest as AuthnRequestElement
+from saml2.samlp import Response
+from saml2.server import Server
+from saml2.sigver import encrypt_cert_from_item
+
+
+class Saml2AcsFormParser(HTMLParser):
+    """Extract the SAML response from an HTML form."""
+
+    saml_response: str | None
+    relay_state: str | None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.saml_response = None
+        self.relay_state = None
+
+    def handle_startendtag(self, tag: str, attrs: List[Tuple[str, Any]]):
+        """Retrieve the values of the `SAMLResponse` or the
+        `RelayState` input tags.
+
+        """
+        if "input" == tag.casefold():
+            # I don't know why attrs is a list of tuples, and at this
+            # point, I'm too afraid to ask.
+            attributes = dict(attrs)
+
+            # Skip this input tag if it doesn't have a name or a value
+            # attribute.
+            if "name" not in attributes or "value" not in attributes:
+                return
+
+            if "samlresponse" == attributes["name"].casefold():
+                self.saml_response = attributes["value"]
+            elif "relaystate" == attributes["name"].casefold():
+                self.relay_state = attributes["value"]
 
 
 @pytest.mark.order("first")
@@ -42,3 +81,36 @@ def test_saml_flow(
     assert request_binding == BINDING_HTTP_REDIRECT
     redirect_url = dict(request_http_args["headers"])["Location"]
     assert saml2_idp_entityid in redirect_url
+
+    # At this point, a web browser would forward the authentication
+    # request to the IdP, so extract it from the URL, same as any web
+    # framework would.
+    qs = parse_qs(urlparse(redirect_url).query)
+    encoded_saml_request = qs["SAMLRequest"][0]
+    assert encoded_saml_request
+
+    # Parse the authentication request.
+    server = Server(config=IdPConfig().load(saml2_idp_config))
+    saml_request = server.parse_authn_request(encoded_saml_request, request_binding)
+    assert isinstance(saml_request, AuthnRequest)
+    authn_req: AuthnRequestElement = saml_request.message
+
+    # Determine how to respond.
+    response_args = server.response_args(authn_req)
+    for key in [
+        "binding",
+        "destination",
+        "in_response_to",
+        "name_id_policy",
+        "sp_entity_id",
+    ]:
+        assert key in response_args
+    assert BINDING_HTTP_POST == response_args["binding"]
+    assert saml2_sp_entityid == response_args["sp_entity_id"]
+    assert response_args["destination"].startswith(saml2_sp_entityid)
+
+    # Respond to the authentication request.
+    saml_response: Response = server.create_authn_request_response(
+        {}, encrypt_cert=encrypt_cert_from_item(authn_req), **response_args
+    )
+    assert saml_response

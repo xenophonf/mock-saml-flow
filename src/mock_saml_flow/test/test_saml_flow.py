@@ -2,6 +2,7 @@ import random
 import string
 from html.parser import HTMLParser
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Dict, List, Tuple
 from urllib.parse import parse_qs, urlparse
 
@@ -81,6 +82,15 @@ def test_saml_flow(
     assert request_binding == BINDING_HTTP_REDIRECT
     redirect_url = dict(request_http_args["headers"])["Location"]
     assert saml2_idp_entityid in redirect_url
+    # View output with pytest -s;
+    # cf. https://docs.pytest.org/en/latest/capture.html.
+    pprint(
+        {
+            "request_id": request_id,
+            "request_binding": request_binding,
+            "request_http_args": request_http_args,
+        }
+    )
 
     # At this point, a web browser would forward the authentication
     # request to the IdP, so extract it from the URL, same as any web
@@ -88,12 +98,14 @@ def test_saml_flow(
     qs = parse_qs(urlparse(redirect_url).query)
     encoded_saml_request = qs["SAMLRequest"][0]
     assert encoded_saml_request
+    pprint({"encoded_saml_request": encoded_saml_request})
 
     # Parse the authentication request.
     server = Server(config=IdPConfig().load(saml2_idp_config))
     saml_request = server.parse_authn_request(encoded_saml_request, request_binding)
     assert isinstance(saml_request, AuthnRequest)
     authn_req: AuthnRequestElement = saml_request.message
+    pprint({"saml_request": saml_request})
 
     # Determine how to respond.
     response_args = server.response_args(authn_req)
@@ -108,9 +120,11 @@ def test_saml_flow(
     assert BINDING_HTTP_POST == response_args["binding"]
     assert saml2_sp_entityid == response_args["sp_entity_id"]
     assert response_args["destination"].startswith(saml2_sp_entityid)
+    pprint({"response_args": response_args})
 
     # Respond to the authentication request.
     saml_response: Response = server.create_authn_request_response(
         {}, encrypt_cert=encrypt_cert_from_item(authn_req), **response_args
     )
     assert saml_response
+    pprint({"saml_response": saml_response})

@@ -123,7 +123,7 @@ def test_saml_flow(
     pprint({"response_args": response_args})
 
     # Respond to the authentication request.
-    saml_response: Response = server.create_authn_request_response(
+    saml_response: Response = server.create_authn_response(
         {}, encrypt_cert=encrypt_cert_from_item(authn_req), **response_args
     )
     assert saml_response

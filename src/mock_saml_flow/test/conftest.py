@@ -93,7 +93,7 @@ def saml2_idp_config(
     return {
         "entityid": saml2_idp_entityid,
         "xmlsec_binary": None,
-        "crypto_backend": "XMLSecurity",
+        "crypto_backend": "XMLSecurity",  # NB: requires pyXMLSecurity; XML-DSIG only
         "key_file": str(kf.name),
         "cert_file": str(cf.name),
         "service": {
@@ -192,7 +192,7 @@ def saml2_sp_config(
     return {
         "entityid": saml2_sp_entityid,
         "xmlsec_binary": None,
-        "crypto_backend": "XMLSecurity",
+        "crypto_backend": "XMLSecurity",  # NB: requires pyXMLSecurity; XML-DSIG only
         "key_file": str(key_file),
         "cert_file": str(cert_file),
         "service": {

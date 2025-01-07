@@ -20,6 +20,9 @@ classifiers = [
 # issues, and avoid pinning specific versions if possible.
 dependencies = [
     "pysaml2",
+    # PySAML2's new XMLSecurity crypto back end requires
+    # pyXMLSecurity.  Note that it only supports XML-DSIG.
+    "pyxmlsecurity",
 ]
 
 [project.optional-dependencies]

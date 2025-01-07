@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT
+from saml2.assertion import Policy
 from saml2.client import Saml2Client
 from saml2.config import Config, IdPConfig
 from saml2.request import AuthnRequest
@@ -87,7 +88,9 @@ def test_saml_flow(
     # framework would.
     qs = parse_qs(urlparse(redirect_url).query)
     encoded_saml_request = qs["SAMLRequest"][0]
+    encoded_relay_state = qs["RelayState"][0]
     assert encoded_saml_request
+    assert encoded_relay_state
 
     # Parse the authentication request.
     server = Server(config=IdPConfig().load(saml2_idp_config))
@@ -95,8 +98,8 @@ def test_saml_flow(
     assert isinstance(saml_request, AuthnRequest)
     authn_req: AuthnRequestElement = saml_request.message
 
-    # Determine how to respond.
-    response_args = server.response_args(authn_req)
+    # Determine to whom to respond.
+    sp_info = server.response_args(authn_req)
     for key in [
         "binding",
         "destination",
@@ -104,13 +107,34 @@ def test_saml_flow(
         "name_id_policy",
         "sp_entity_id",
     ]:
-        assert key in response_args
-    assert BINDING_HTTP_POST == response_args["binding"]
-    assert saml2_sp_entityid == response_args["sp_entity_id"]
-    assert response_args["destination"].startswith(saml2_sp_entityid)
+        assert key in sp_info
+    assert sp_info["in_response_to"]
+    assert BINDING_HTTP_POST == sp_info["binding"]
+    assert saml2_sp_entityid == sp_info["sp_entity_id"]
+    assert sp_info["destination"].startswith(saml2_sp_entityid)
+
+    # Determine how to sign/encrypt the response.
+    policy: Policy = server.config.getattr("policy")
+    assert policy
+    sign_response = policy.get("sign_response", sp_info["sp_entity_id"])
+    assert sign_response is not None
+    sign_assertion = policy.get("sign_assertion", sp_info["sp_entity_id"])
+    assert sign_assertion is not None
+    assert sign_response or sign_assertion
+    encrypt_assertion = policy.get("encrypt_assertion", sp_info["sp_entity_id"], False)
+    assert encrypt_assertion is not None
+    encrypted_advice_attributes = policy.get(
+        "encrypted_advice_attributes", sp_info["sp_entity_id"], False
+    )
 
     # Respond to the authentication request.
     saml_response: Response = server.create_authn_response(
-        {}, encrypt_cert=encrypt_cert_from_item(authn_req), **response_args
+        {},
+        sign_response=sign_response,
+        sign_assertion=sign_assertion,
+        encrypt_assertion=encrypt_assertion,
+        encrypted_advice_attributes=encrypted_advice_attributes,
+        encrypt_cert=encrypt_cert_from_item(authn_req),
+        **sp_info,
     )
     assert saml_response

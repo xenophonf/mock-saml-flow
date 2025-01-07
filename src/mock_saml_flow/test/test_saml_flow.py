@@ -70,7 +70,7 @@ def test_saml_flow(
     # Add the mock IdP metadata to the mock SP configuration.
     saml2_sp_config["metadata"] = {"local": [str(saml2_idp_metadata)]}
 
-    # Request authentication.  The SP should redirect to the IdP.
+    # Request authentication.  The SP will redirect to the IdP.
     # Include a random relay state.
     relay_state = "".join(random.sample(string.ascii_letters, 8))
     client = Saml2Client(config=Config().load(saml2_sp_config))
@@ -79,9 +79,14 @@ def test_saml_flow(
             entity_id=saml2_idp_entityid, relay_state=relay_state
         )
     )
+    assert request_id
     assert request_binding == BINDING_HTTP_REDIRECT
     redirect_url = dict(request_http_args["headers"])["Location"]
     assert saml2_idp_entityid in redirect_url
+
+    # Keep track of outstanding authentication requests (and what
+    # prompted them); not needed if enabling unsolicited responses.
+    outstanding_queries = {request_id: "/"}
 
     # At this point, a web browser would forward the authentication
     # request to the IdP, so extract it from the URL, same as any web

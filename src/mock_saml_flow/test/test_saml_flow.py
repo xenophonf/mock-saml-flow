@@ -148,3 +148,10 @@ def test_saml_flow(
         response=True,
     )
     assert "data" in http_args
+
+    # At this point, a web browser would submit the authentication
+    # response to the SP, so extract it from the HTML form.
+    form_data = Saml2AcsFormParser()
+    form_data.feed(http_args["data"])
+    assert form_data.saml_response
+    assert form_data.relay_state == relay_state

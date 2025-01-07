@@ -138,3 +138,13 @@ def test_saml_flow(
         **sp_info,
     )
     assert saml_response
+
+    # Encode the response in an HTML form.
+    http_args: Dict[str, Any] = server.apply_binding(
+        sp_info["binding"],
+        f"{saml_response}",
+        sp_info["destination"],
+        relay_state=encoded_relay_state,
+        response=True,
+    )
+    assert "data" in http_args

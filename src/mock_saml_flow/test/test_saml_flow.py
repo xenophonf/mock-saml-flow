@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from faker import Faker
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT
 from saml2.assertion import Policy
 from saml2.client import Saml2Client
@@ -52,6 +53,7 @@ class Saml2AcsFormParser(HTMLParser):
 @pytest.mark.order("first")
 @pytest.mark.smoke
 def test_saml_flow(
+    faker: Faker,
     saml2_idp_entityid: str,
     saml2_idp_config: Dict[str, Any],
     saml2_idp_metadata: Path,
@@ -134,7 +136,11 @@ def test_saml_flow(
 
     # Respond to the authentication request.
     saml_response: Response = server.create_authn_response(
-        {},
+        identity={
+            "givenName": [faker.first_name()],
+            "sn": [faker.last_name()],
+            "mail": [faker.email()],
+        },
         sign_response=sign_response,
         sign_assertion=sign_assertion,
         encrypt_assertion=encrypt_assertion,

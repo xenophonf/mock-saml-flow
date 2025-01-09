@@ -171,3 +171,9 @@ def test_saml_flow(
     form_data.feed(http_args["data"])
     assert form_data.saml_response
     assert form_data.relay_state == relay_state
+
+    # Parse the authentication response.
+    authn_response = client.parse_authn_request_response(
+        form_data.saml_response, BINDING_HTTP_POST, outstanding_queries
+    )
+    assert authn_response

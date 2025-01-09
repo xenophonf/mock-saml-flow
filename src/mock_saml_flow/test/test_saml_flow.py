@@ -9,6 +9,7 @@ import pytest
 from faker import Faker
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT
 from saml2.assertion import Policy
+from saml2.authn_context import INTERNETPROTOCOLPASSWORD
 from saml2.client import Saml2Client
 from saml2.config import Config, IdPConfig
 from saml2.request import AuthnRequest
@@ -136,6 +137,10 @@ def test_saml_flow(
 
     # Respond to the authentication request.
     saml_response: Response = server.create_authn_response(
+        authn={
+            "class_ref": INTERNETPROTOCOLPASSWORD,
+            "authn_auth": server.config.entityid,
+        },
         identity={
             "givenName": [faker.first_name()],
             "sn": [faker.last_name()],
